@@ -63,8 +63,10 @@ Abaixo estão os tempos de execução totais obtidos para a inferência da rede 
 
 | Nº Threads/Processos | Tempo de Execução (s) |
 | -------------------- | --------------------- |
-| 1 (Serial)           |                       |
+| 1 (Serial)           |  13.337,52 segundos (Aprox. 3 horas e 42 minutos) |
 |                      |                       |
+
+Devido ao alto volume de dados (194.680 imagens) e à inviabilidade da execução sequencial em tempo hábil para a demonstração, o tempo total foi projetado com base em uma amostragem real de 1.000 registros, que levou 68,51 segundos no ambiente de testes. E depois multipliquei o tempo que demorou para 1000 registros e calculei como se fossem 194.680.
 
 ---
 
