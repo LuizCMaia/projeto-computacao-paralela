@@ -103,7 +103,25 @@ Onde:
 
 ---
 
-# 7. Análise dos Resultados
+# 7. Gráfico de Tempo de Execução
+
+
+
+---
+
+# 8. Gráfico de Speedup
+
+
+
+---
+
+# 9. Gráfico de Eficiência
+
+
+
+---
+
+# 10. Análise dos Resultados
 
 **(Preencha esta seção após executar os testes e coletar os tempos. Abaixo está uma estrutura base para você completar:)**
 
@@ -116,6 +134,6 @@ Onde:
 **Houve overhead de paralelização?**
 [SUA RESPOSTA AQUI - Ex: O overhead associado à leitura no disco (I/O bound) começou a impactar a performance a partir de X processos...]
 
-# 8. Conclusão
+# 11. Conclusão
 
 O experimento demonstra com clareza o impacto positivo da computação paralela em tarefas do mundo real, como o processamento de grandes arquivos de mídia. A execução serial representou um gargalo considerável para a transformação dos 2 GB de imagens. A paralelização através da biblioteca `multiprocessing` permitiu isolar corretamente as cargas de CPU e I/O, otimizando de forma notável o tempo total de resposta da aplicação e validando o uso do padrão produtor-consumidor para este cenário.
