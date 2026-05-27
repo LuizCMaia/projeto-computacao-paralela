@@ -1,8 +1,13 @@
 # Relatório de Processamento Paralelo de Imagens
 
-**Disciplina: Sistemas de Informação** **Aluno(s): Luiz Maia**
+**Disciplina: Sistemas de Informação**
+
+**Aluno(s): Luiz Maia e Waldo Andrade**
+
 **Turma: SI-Noturno**
+
 **Professor: Rafael**
+
 **Data: 27/05/2026**
 
 ---
