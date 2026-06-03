@@ -86,9 +86,11 @@ Devido ao alto volume de dados (194.680 imagens) e à inviabilidade da execuçã
 
 | Threads/Processos | Tempo (s)            | Speedup              | Eficiência           |
 | ----------------- | ---------            | -------              | ----------           |
-| 1                 |                      | 1.00                 | 1.00                 |
-|                   |                      |                      |                      |
-
+| 1                 |  125.63              | 1.00                 | 1.00                 |
+| 2                 |  69.65               | 1.80                 | 0.90                 |
+| 4                 |  45.37               | 2.77                 | 0.69                 |
+| 8                 |  36.47               | 3.44                 | 0.43                 |
+| 12                |  39.95               | 3.14                 | 0.26                 |
 ---
 
 # 7. Análise dos Resultados
