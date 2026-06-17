@@ -1,7 +1,6 @@
 # Relatório de Classificação de Imagens com Inteligência Artificial e Processamento Paralelo
 
-**Disciplina: Sistemas de Informação** 
-
+**Disciplina: Sistemas de Informação**   
 **Aluno(s): Luiz Maia e Waldo Andrade**
 
 **Turma: SI-Noturno**
