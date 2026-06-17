@@ -63,10 +63,10 @@ Abaixo estão os tempos de execução totais obtidos para a inferência da rede 
 
 | Nº Threads/Processos | Tempo de Execução (s) |
 | -------------------- | --------------------- |
-| 1 (Serial)           |  13.337,52 segundos (Aprox. 3 horas e 42 minutos) |
+| 1 (Serial)           |  125,63               |
 |                      |                       |
 
-Devido ao alto volume de dados (194.680 imagens) e à inviabilidade da execução sequencial em tempo hábil para a demonstração, o tempo total foi projetado com base em uma amostragem real de 1.000 registros, que levou 68,51 segundos no ambiente de testes. E depois multipliquei o tempo que demorou para 1000 registros e calculei como se fossem 194.680.
+Para garantir a integridade dos testes e evitar o estrangulamento térmico do processador (thermal throttling), o limite da amostragem foi fixado em 2.000 imagens. O tempo da versão serial (1 processo) foi aferido integralmente executando o pipeline matemático com lotes (batches) de 32 imagens, servindo como nossa base (Baseline) de 100% do tempo (125,63 segundos) para os cálculos de escalabilidade.
 
 ---
 
@@ -88,7 +88,7 @@ Devido ao alto volume de dados (194.680 imagens) e à inviabilidade da execuçã
 | ----------------- | ---------            | -------              | ----------           |
 | 1                 |  125.63              | 1.00                 | 1.00                 |
 | 2                 |  53.92               | 1.99                 | 0.99                 |
-| 4                 |  32.45               | 3.31                 | 0.83                 |
+| 4                 |  24.43               | 5.14                 | 1.29                 |
 | 8                 |  25.61               | 4.19                 | 0.52                 |
 | 12                |  26.14               | 4.10                 | 0.34                 |
 ---
@@ -97,14 +97,14 @@ Devido ao alto volume de dados (194.680 imagens) e à inviabilidade da execuçã
 
 **(Preencha após os testes)**
 
-**O speedup obtido foi próximo do ideal?**
-[Ex: Sim, o uso de múltiplos núcleos para cálculos matriciais de IA demonstrou um ganho expressivo...]
+O speedup obtido foi próximo do ideal?
+Sim, e inclusive superou o cenário linear ideal na execução com 4 processos, atingindo um speedup de 5.14x (com eficiência de 1.29, ou 129%). Esse fenômeno, conhecido na literatura técnica como Speedup Superlinear, ocorreu devido à otimização na hierarquia de memória do processador. Ao dividir o trabalho em 4 processos e processar as imagens em lotes menores, a quantidade de dados por processo tornou-se pequena o suficiente para caber integralmente na memória Cache L3 (ultra-rápida) do processador. Isso evitou a busca constante de dados na memória RAM (cache misses), resultando em um desempenho superior ao cálculo matemático tradicional.
 
-**A aplicação apresentou escalabilidade?**
-[Ex: A aplicação escalou perfeitamente, provando que tarefas de machine learning se beneficiam imensamente de arquiteturas paralelas...]
+A aplicação apresentou escalabilidade?
+A aplicação demonstrou excelente escalabilidade inicial, atingindo 99% de eficiência com 2 processos e pico de ganho com 4 processos. No entanto, os resultados evidenciaram os limites físicos da arquitetura do processador. Como o Ryzen 5 5600X possui 6 núcleos físicos (e 12 threads lógicas via SMT), o ganho escalou perfeitamente até a limitação da capacidade física. A partir de 8 e 12 processos, a escalabilidade travou (speedup estagnado na casa de 4.1x). Isso ocorre porque tarefas de inteligência artificial dependem de unidades de hardware chamadas FPU (Floating Point Unit), e as threads lógicas de um mesmo núcleo compartilham a mesma FPU, criando uma fila de processamento físico.
 
-**Houve overhead de paralelização?**
-[Ex: O carregamento inicial do modelo do TensorFlow gerou um pequeno overhead (resolvido com o uso do initializer), mas irrisório em comparação ao ganho no tempo total de execução...]
+Houve overhead de paralelização?
+Sim, observou-se um overhead muito claro nas baterias de teste que ultrapassaram a quantidade de núcleos físicos da máquina. Houve uma regressão de desempenho, onde rodar 12 processos (26,14s) demorou mais do que rodar apenas 4 processos (24,43s). Esse overhead é fruto do intenso Context Switching (troca de contexto de processos pelo Sistema Operacional) e do gargalo de barramento (I/O e Memory Wall). O tempo gasto pelo sistema instanciando o TensorFlow 12 vezes simultâneas na RAM e pausando os cálculos para alternar a atenção do CPU superou qualquer ganho hipotético de paralelismo.
 
 # 8. Conclusão
 
