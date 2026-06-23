@@ -85,11 +85,11 @@ Para garantir a integridade dos testes e evitar o estrangulamento térmico do pr
 
 | Threads/Processos | Tempo (s)            | Speedup              | Eficiência           |
 | ----------------- | ---------            | -------              | ----------           |
-| 1                 |  125.63              | 1.00                 | 1.00                 |
-| 2                 |  53.92               | 1.99                 | 0.99                 |
-| 4                 |  24.43               | 5.14                 | 1.29                 |
-| 8                 |  25.61               | 4.19                 | 0.52                 |
-| 12                |  26.14               | 4.10                 | 0.34                 |
+| 1                 |  103.61              | 1.00                 | 1.00                 |
+| 2                 |  55.23               | 1.88                 | 0.94                 |
+| 4                 |  30.38               | 3.41                 | 0.85                 |
+| 8                 |  25.76               | 4.02                 | 0.50                 |
+| 12                |  24.10               | 4.30                 | 0.36                 |
 ---
 
 # 7. Análise dos Resultados
