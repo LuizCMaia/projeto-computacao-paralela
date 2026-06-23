@@ -7,8 +7,6 @@
 
 **Professor: Rafael**
 
-**Data: 27/05/2026**
-
 ---
 
 # 1. Descrição do Problema
