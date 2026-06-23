@@ -32,10 +32,9 @@ Os experimentos foram realizados em ambiente local com a seguinte configuração
 | Número de núcleos           | 6/12                                        |
 | Memória RAM                 | 32 GB RAM                                   |
 | Sistema Operacional         | Windows 11                                  |
-| Linguagem utilizada         | Python 3.13                                 |
+| Linguagem utilizada         | Python 3.11                                 |
 | Biblioteca de IA            | `TensorFlow` (MobileNetV2)                  |
 | Biblioteca de paralelização | `multiprocessing` (nativa)                  |
-| Banco de Dados              | `SQLite3`                                   |
 
 ---
 
@@ -65,7 +64,7 @@ Abaixo estão os tempos de execução totais obtidos para a inferência da rede 
 | 1 (Serial)           |  103.61               |
 |                      |                       |
 
-Para garantir a integridade dos testes e evitar o estrangulamento térmico do processador (thermal throttling), o limite da amostragem foi fixado em 2.000 imagens. O tempo da versão serial (1 processo) foi aferido integralmente executando o pipeline matemático com lotes (batches) de 32 imagens, servindo como nossa base (Baseline) de 100% do tempo (125,63 segundos) para os cálculos de escalabilidade.
+Para garantir a integridade dos testes e evitar o estrangulamento térmico do processador (thermal throttling), o limite da amostragem foi fixado em 2.000 imagens. O tempo da versão serial (1 processo) foi aferido integralmente executando o pipeline matemático com lotes (batches) de 32 imagens, servindo como nossa base (Baseline) de 100% do tempo (103.61 segundos) para os cálculos de escalabilidade.
 
 ---
 
@@ -92,9 +91,24 @@ Para garantir a integridade dos testes e evitar o estrangulamento térmico do pr
 | 12                |  24.10               | 4.30                 | 0.36                 |
 ---
 
-# 7. Análise dos Resultados
+---
 
-**(Preencha após os testes)**
+# 7. Visualização do Desempenho
+
+Abaixo estão os gráficos gerados a partir do benchmark, ilustrando o comportamento da arquitetura do processador sob diferentes cargas de paralelismo.
+
+### Tempo de Execução (segundos)
+![Gráfico de Tempo de Execução](grafico_tempo.png)
+
+### Curva de Speedup
+![Gráfico de Speedup](grafico_speedup.png)
+
+### Eficiência Paralela
+![Gráfico de Eficiência](grafico_eficiencia.png)
+
+# 8. Análise dos Resultados
+
+
 
 O speedup obtido foi próximo do ideal?
 
@@ -108,6 +122,6 @@ Houve overhead de paralelização?
 
 Sim, o overhead torna-se evidente na queda brusca de eficiência ao ultrapassar os núcleos físicos (de 85% com 4 threads para apenas 36% com 12 threads). Além do estrangulamento das FPUs mencionado acima, o sistema esbarrou no *Memory Wall* (gargalo de barramento). Com 12 threads tentando alocar e transferir lotes imensos de imagens simultaneamente da RAM para a Memória Cache L3, o barramento de dados satura. A CPU passa ciclos ociosa esperando os dados chegarem, o que impede que o tempo total diminua proporcionalmente à quantidade de threads virtuais alocadas.
 
-# 8. Conclusão
+# 9. Conclusão
 
 O projeto provou com sucesso que a computação paralela é estritamente necessária para a aplicação de Inteligência Artificial e Visão Computacional no mundo real. A execução serial para análise matricial de 2 GB de dados demonstrou ser insustentável. Ao isolar a carga de trabalho de inferência (TensorFlow) em processos independentes gerenciados pelo Python, foi possível maximizar o uso da arquitetura multi-core do hardware e alcançar uma redução dramática no tempo de resposta do sistema.
