@@ -9,17 +9,22 @@
 
 ---
 
-# 1. Descrição do Problema
+# 1. Descrição do Problema e Aplicação no Mundo Real
 
-O problema computacional resolvido consiste na classificação automatizada de um grande volume de imagens utilizando Inteligência Artificial. O sistema realiza a leitura de arquivos do disco e submete cada imagem a uma Rede Neural Convolucional (CNN) pré-treinada para identificar o objeto ou cenário presente na foto (ex: floresta, carros, animais).
+O problema computacional resolvido consiste na **classificação automatizada de um grande volume de imagens** utilizando Inteligência Artificial em hardwares de uso geral (CPUs comuns). 
 
-* **Problema implementado:** Inferência de rede neural (CPU bound), que exige intenso cálculo matemático de ponto flutuante (operações matriciais) para cada imagem processada. A execução puramente sequencial torna-se um gargalo severo em grandes volumes de dados.
-* **Algoritmo utilizado:** Modelo `MobileNetV2` carregado através da biblioteca **TensorFlow / Keras**.
-* **Tamanho da entrada:** Diretório contendo 2.000 imagens para a amostra de benchmark.
-* **Objetivo da paralelização:** Reduzir o tempo de execução utilizando a API C++ nativa do TensorFlow (`tf.data`) acoplada a uma estratégia de **Escalonamento Dinâmico de Lotes** (Dynamic Batching), distribuindo a carga de pré-processamento e inferência pelos núcleos disponíveis do processador sem clonar o modelo na memória.
+Na vida real, esta arquitetura otimizada de software é vital para cenários onde não há acesso à internet para processamento em nuvem ou orçamento para placas de vídeo (GPUs) de alto custo, tais como:
+* **Perícia Criminal e Computação Forense:** Varrer centenas de milhares de fotos em um HD de um suspeito em tempo recorde para encontrar provas (ex: armas, drogas, locais).
+* **Edge Computing (Agronegócio e Indústria):** Drones que capturam milhares de fotos de uma plantação e precisam processar a identificação de pragas localmente, offline, em um notebook comum no meio do campo.
+* **Redução de Custos Corporativos:** Permitir que empresas extraiam 400% a mais de desempenho em IA utilizando a infraestrutura de servidores que já possuem, sem gastar com hardware extra.
+
+**Detalhes Técnicos do Projeto:**
+* **Problema implementado:** Inferência de rede neural (CPU bound), que exige intenso cálculo matemático de ponto flutuante (operações matriciais). A execução puramente sequencial torna-se um gargalo severo na vida real.
+* **Algoritmo utilizado:** Modelo `MobileNetV2` carregado através da biblioteca **TensorFlow / Keras**. Este modelo foi escolhido cirurgicamente por sua arquitetura de "Convoluções Separáveis", ideal para dispositivos com restrição de hardware.
+* **Tamanho da entrada:** Diretório contendo 2.000 imagens para a amostra rigorosa de benchmark.
+* **Objetivo da paralelização:** Reduzir drasticamente o tempo de processamento isolando a biblioteca TensorFlow em processos independentes via script, acoplados a uma estratégia inovadora de **Escalonamento Dinâmico de Lotes (Dynamic Batching)**. O intuito é extrair o máximo de desempenho dos núcleos físicos do processador sem estourar a Memória RAM.
 
 ---
-
 # 2. Ambiente Experimental
 
 Os experimentos foram realizados em ambiente local com a seguinte configuração:
