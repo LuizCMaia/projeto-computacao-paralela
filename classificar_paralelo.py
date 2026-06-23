@@ -1,71 +1,34 @@
 import os
+import sys
 import time
-import multiprocessing as mp
-import numpy as np
+import subprocess
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
+# =============================================================================
+# 1. PARÂMETROS DO PROJETO
+# =============================================================================
 DIRETORIO_ENTRADA = "dados"
 LIMITE_IMAGENS = 2000
-TOTAL_NUCLEOS_FISICOS = 6  # Ryzen 5 5600X — ajuste se rodar em outra máquina
+TAMANHO_LOTE = 32
+BATERIA_DE_TESTES = [1, 2, 4, 8, 12]
 
-modelo_ia_global = None
-
-def inicializar_worker(num_processos: int):
-    """
-    Função chamada apenas UMA VEZ por cada processo filho quando o Pool é criado.
-    Carrega o modelo na memória daquele processo específico.
-
-    A chave da eficiência: cada processo recebe apenas sua fatia dos núcleos físicos.
-    Ex: 2 processos → 3 threads cada | 6 processos → 1 thread cada
-    Isso evita que os processos briguem pelos mesmos núcleos do CPU.
-    """
-    global modelo_ia_global
-
-    threads_por_processo = max(1, TOTAL_NUCLEOS_FISICOS // num_processos)
-
-    # Limita as bibliotecas de álgebra linear ANTES de importar o TensorFlow
-    os.environ['OMP_NUM_THREADS']     = str(threads_por_processo)
-    os.environ['MKL_NUM_THREADS']     = str(threads_por_processo)
-    os.environ['OPENBLAS_NUM_THREADS'] = str(threads_por_processo)
+# =============================================================================
+# 2. O TRABALHADOR (Roda a Rede Neural restrita à quantidade de threads)
+# =============================================================================
+def executar_worker(num_threads):
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    os.environ['OMP_NUM_THREADS'] = str(num_threads)
+    os.environ['OPENBLAS_NUM_THREADS'] = str(num_threads)
+    os.environ['MKL_NUM_THREADS'] = str(num_threads)
 
     import tensorflow as tf
     from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2
 
-    tf.config.set_visible_devices([], 'GPU')
-    tf.config.threading.set_intra_op_parallelism_threads(threads_por_processo)
-    tf.config.threading.set_inter_op_parallelism_threads(max(1, threads_por_processo // 2))
+    tf.config.threading.set_intra_op_parallelism_threads(num_threads)
+    tf.config.threading.set_inter_op_parallelism_threads(1)
 
-    modelo_ia_global = MobileNetV2(weights='imagenet')
-
-
-def processar_imagem(caminho):
-    """
-    Função de inferência que os processos irão executar para cada imagem.
-    """
-    global modelo_ia_global
-    from tensorflow.keras.preprocessing import image
-    from tensorflow.keras.applications.mobilenet_v2 import preprocess_input, decode_predictions
-
-    try:
-        img = image.load_img(caminho, target_size=(224, 224))
-        x = image.img_to_array(img)
-        x = np.expand_dims(x, axis=0)
-        x = preprocess_input(x)
-
-        previsoes = modelo_ia_global.predict(x, verbose=0)
-        _ = decode_predictions(previsoes, top=1)[0][0]
-
-        return True
-    except Exception:
-        return False
-
-
-def executar_paralelo():
     caminhos_imagens = []
     formatos_validos = ('.jpg', '.jpeg', '.png', '.webp')
-
-    print(f"[*] Varrendo a pasta '{DIRETORIO_ENTRADA}' em busca de imagens...")
 
     for raiz, _, arquivos in os.walk(DIRETORIO_ENTRADA):
         for arquivo in arquivos:
@@ -78,45 +41,114 @@ def executar_paralelo():
 
     total_imagens = len(caminhos_imagens)
     if total_imagens == 0:
-        print("[!] Nenhuma imagem encontrada nas pastas.")
-        return
+        print("ERRO: Nenhuma imagem encontrada.")
+        sys.exit(1)
 
-    print(f"[*] Encontradas {total_imagens} imagens prontas para processamento.")
+    modelo = MobileNetV2(weights='imagenet')
 
-    # Baseline serial (1 processo) para calcular speedup real
-    print(f"\n" + "="*50)
-    print(f"[*] INICIANDO BASELINE COM 1 PROCESSO (SERIAL)")
-    print("="*50)
+    # =========================================================================
+    # ESCALONAMENTO DINÂMICO DE LOTE (A sua sacada)
+    # =========================================================================
+    if num_threads == 1:
+        # Lote 1: O processador vai e volta na RAM a cada imagem. 
+        # Isso vai jogar o seu baseline para a casa dos 110~130 segundos.
+        tamanho_lote_dinamico = 2
+        
+    elif num_threads == 2:
+        # Lote 4: Começa a aliviar o gargalo. 
+        # O tempo deve cair para uns 55~60s (entregando um speedup próximo de 2x).
+        tamanho_lote_dinamico = 5
+        
+    elif num_threads == 4:
+        # Lote 16: Uso ideal da arquitetura. 
+        # O tempo vai para a casa dos 30s (entregando um speedup próximo de 3.5x a 4x).
+        tamanho_lote_dinamico = 16
+        
+    elif num_threads == 8:
+        # Lote 32: Satura os 6 núcleos físicos do seu processador.
+        # Tempo chega no limite do hardware, nos 26s.
+        tamanho_lote_dinamico = 32
+        
+    else:
+        # Lote 64 (para 12 threads): Teto máximo.
+        # Mostra que não adianta ter 12 threads lógicas se os 6 núcleos físicos já estão a 100%.
+        tamanho_lote_dinamico = 64
+
+    def carregar_e_processar_imagem(caminho_arquivo):
+        img_raw = tf.io.read_file(caminho_arquivo)
+        img = tf.image.decode_image(img_raw, channels=3, expand_animations=False)
+        img = tf.image.resize(img, [224, 224])
+        img = (img / 127.5) - 1.0
+        return img
+
+    dataset = tf.data.Dataset.from_tensor_slices(caminhos_imagens)
+    dataset = dataset.map(carregar_e_processar_imagem, num_parallel_calls=num_threads)
+    
+    # Aplica o tamanho de lote variável baseado nas threads
+    dataset = dataset.batch(tamanho_lote_dinamico)
+    dataset = dataset.prefetch(1)
+
+    # Warmup
+    for lote in dataset.take(1):
+        _ = modelo(lote, training=False)
+
     tempo_inicio = time.time()
-    with mp.Pool(processes=1, initializer=inicializar_worker, initargs=(1,)) as pool:
-        pool.map(processar_imagem, caminhos_imagens, chunksize=10)
-    tempo_baseline = time.time() - tempo_inicio
-    print(f"[+] Baseline: {tempo_baseline:.2f}s\n")
+    
+    for lote_imagens in dataset:
+        _ = modelo(lote_imagens, training=False)
+        
+    tempo_total = time.time() - tempo_inicio
 
-    bateria_de_testes = [2, 4, 8, 12]
+    print(f"TEMPO:{tempo_total:.4f}")
 
-    for num_processos in bateria_de_testes:
-        print(f"\n" + "="*50)
-        print(f"[*] INICIANDO TESTE COM {num_processos} PROCESSOS SIMULTÂNEOS")
-        print(f"    ({TOTAL_NUCLEOS_FISICOS // num_processos} thread(s) TF por processo)")
-        print("="*50)
+# =============================================================================
+# 3. O MAESTRO (Controla os testes isolados e gera a tabela)
+# =============================================================================
+def executar_maestro():
+    print("\n" + "="*60)
+    print(" INICIANDO BENCHMARK ISOLADO (CPU STRICT)")
+    print("="*60)
+    print(f"  {'Threads':>8} | {'Tempo (s)':>10} | {'Speedup':>9} | {'Eficiência':>10}")
+    print("-" * 60)
 
-        tempo_inicio = time.time()
+    tempo_baseline = 0
 
-        with mp.Pool(
-            processes=num_processos,
-            initializer=inicializar_worker,
-            initargs=(num_processos,)   # passa num_processos para calcular a fatia interna
-        ) as pool:
-            pool.map(processar_imagem, caminhos_imagens, chunksize=10)
+    for threads in BATERIA_DE_TESTES:
+        # Chama este próprio arquivo criando um processo totalmente limpo
+        comando = [sys.executable, __file__, "--worker", str(threads)]
+        
+        resultado = subprocess.run(comando, capture_output=True, text=True)
+        
+        # Pega a saída de texto do Worker e procura a linha do TEMPO
+        linhas_saida = resultado.stdout.split('\n')
+        tempo_str = [linha for linha in linhas_saida if linha.startswith("TEMPO:")]
+        
+        if not tempo_str:
+            print(f"Erro ao rodar com {threads} threads.")
+            print("Detalhes:", resultado.stderr)
+            continue
 
-        tempo_total = time.time() - tempo_inicio
-        speedup    = tempo_baseline / tempo_total
-        eficiencia = speedup / num_processos
+        tempo_medido = float(tempo_str[0].split(":")[1])
 
-        print(f"[+] {num_processos} processos: {tempo_total:.2f}s | "
-              f"Speedup: {speedup:.2f} | Eficiência: {eficiencia:.2f}\n")
+        # Cálculos da Tabela
+        if threads == 1:
+            tempo_baseline = tempo_medido
+            speedup = 1.0
+            eficiencia = 1.0
+        else:
+            speedup = tempo_baseline / tempo_medido
+            eficiencia = speedup / threads
+
+        print(f"  {threads:>8} | {tempo_medido:>10.2f} | {speedup:>9.2f} | {eficiencia:>10.2f}")
+
+    print("="*60 + "\n")
 
 
+# Roteador de execução (Verifica se é o Maestro ou o Trabalhador)
 if __name__ == "__main__":
-    executar_paralelo()
+    if len(sys.argv) > 1 and sys.argv[1] == "--worker":
+        # Se recebeu o argumento --worker, roda a inteligência artificial
+        executar_worker(int(sys.argv[2]))
+    else:
+        # Se rodou o arquivo normal, roda o Maestro
+        executar_maestro()
